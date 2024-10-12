@@ -1,0 +1,1 @@
+ /home/jenny/Dokumente/Daily-Spend/Daily-Spend/.dart_tool/flutter_build/0399f7616f059c0fd3794ad256f10fe7/native_assets.yaml: 
