@@ -259,6 +259,21 @@ class DatabaseHelper {
     }
   }
 
+  Future<void> deleteExpenses(List<int> expenseIds) async {
+    Database db = await instance.database;
+
+    // Beginne eine Transaktion für die Löschoperation
+    await db.transaction((txn) async {
+      for (int id in expenseIds) {
+        await txn.delete(
+          'expenses',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+  }
+
   // Income
   Future<List<Map<String, dynamic>>> getAllIncome() async {
     Database db = await instance.database;
@@ -357,5 +372,18 @@ class DatabaseHelper {
     }
 
     return totalIncomeForYear;
+  }
+
+  Future<void> deleteIncome(List<int> incomeIds) async {
+    Database db = await instance.database;
+    await db.transaction((txn) async {
+      for (int id in incomeIds) {
+        await txn.delete(
+          'income',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
   }
 }

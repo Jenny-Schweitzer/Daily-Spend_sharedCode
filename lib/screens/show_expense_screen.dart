@@ -19,6 +19,9 @@ class OverviewExpenseScreen extends StatefulWidget {
 class _OverviewExpenseScreenState extends State<OverviewExpenseScreen> {
   late Future<List<Expenses>> _expenseList;
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool editMode = false;
+  bool standardSelected = false;
+  List<bool> selectedExpenses = [];
 
   @override
   void initState() {
@@ -30,6 +33,39 @@ class _OverviewExpenseScreenState extends State<OverviewExpenseScreen> {
   void _loadExpenseData() {
     setState(() {
       _expenseList = _fetchAllExpenses();
+    });
+    _expenseList.then((expenses) {
+      setState(() {
+        selectedExpenses = List<bool>.filled(expenses.length, false);
+      });
+    });
+  }
+
+  void _deleteExpense() async {
+    List<int> expenseIdsToDelete = [];
+
+    // Sammle die IDs der markierten Ausgaben
+    for (int index = 0; index < selectedExpenses.length; index++) {
+      if (selectedExpenses[index]) {
+        final Expenses expenseToDelete = (await _expenseList).elementAt(index);
+        expenseIdsToDelete.add(expenseToDelete.id!);
+      }
+    }
+
+    if (expenseIdsToDelete.isNotEmpty) {
+      await DatabaseHelper.instance.deleteExpenses(expenseIdsToDelete);
+
+      setState(() {
+        selectedExpenses.fillRange(0, selectedExpenses.length, false);
+        _loadExpenseData();
+      });
+    }
+  }
+
+  void _resetSelection() {
+    setState(() {
+      selectedExpenses.fillRange(
+          0, selectedExpenses.length, false); // Alle Auswahl zurücksetzen
     });
   }
 
@@ -92,6 +128,35 @@ class _OverviewExpenseScreenState extends State<OverviewExpenseScreen> {
               color: AppColors.onPrimaryColor,
             ),
           ),
+          actions: <Widget>[
+            if (editMode)
+              IconButton(
+                icon: const Icon(
+                  Icons.delete,
+                  color: AppColors.onPrimaryColor,
+                  size: 30,
+                ),
+                onPressed: () async {
+                  _deleteExpense();
+                  editMode = false;
+                },
+              ),
+            IconButton(
+              icon: const Icon(
+                Icons.edit,
+                color: AppColors.onPrimaryColor,
+                size: 30,
+              ),
+              onPressed: () {
+                setState(() {
+                  // Togglen des editMode Werts zwischen true und false
+                  editMode = !editMode;
+                  // setze die Auswahl zurück, wenn man im editMode war
+                  _resetSelection();
+                });
+              },
+            )
+          ],
           centerTitle: true,
           elevation: 2,
         ),
@@ -160,84 +225,100 @@ class _OverviewExpenseScreenState extends State<OverviewExpenseScreen> {
                             final categoryData =
                                 Category.fromMap(categorySnapshot.data!);
 
-                            return Card(
-                              elevation: 4,
-                              color: Color(int.parse(
-                                  categoryData.color ?? '0xFFEEEEEE')),
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: Card(
+                                    elevation: 4,
+                                    color: Color(int.parse(
+                                        categoryData.color ?? '0xFFEEEEEE')),
                               margin: const EdgeInsets.symmetric(vertical: 8.0),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '${expense.name}',
-                                          style: const TextStyle(
-                                            fontSize: AppFonds.meduim,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                '${expense.name}',
+                                                style: const TextStyle(
+                                                  fontSize: AppFonds.meduim,
                                             color: AppColors.textColorBright,
-                                          ),
-                                        ),
-                                        Spacer(),
-                                        Text(
-                                          '${expense.amount?.toStringAsFixed(2)} €',
-                                          style: const TextStyle(
-                                              fontSize: AppFonds.meduim,
-                                              fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              Spacer(),
+                                              Text(
+                                                '${expense.amount?.toStringAsFixed(2)} €',
+                                                style: const TextStyle(
+                                                    fontSize: AppFonds.meduim,
+                                                    fontWeight: FontWeight.bold,
                                               color: AppColors.textColorBright),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                            CategorieIcons.toIconData(
-                                                categoryData.icon ??
-                                                    'Icons.question_mark'),
-                                            size: AppFonds.smal,
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                  CategorieIcons.toIconData(
+                                                      categoryData.icon ??
+                                                          'Icons.question_mark'),
+                                                  size: AppFonds.smal,
                                             color: AppColors.textColorBright70),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Category: ${categoryData.name}',
-                                          style: const TextStyle(
-                                            fontSize: AppFonds.smal,
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Category: ${categoryData.name}',
+                                                style: const TextStyle(
+                                                  fontSize: AppFonds.smal,
                                             color: AppColors.textColorBright,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.calendar_today,
-                                            size: AppFonds.smal,
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.calendar_today,
+                                                  size: AppFonds.smal,
                                             color: AppColors.textColorBright70),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Month: ${Helper.monthToString(expense.month)}',
-                                          style: const TextStyle(
-                                            fontSize: AppFonds.smal,
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'Month: ${Helper.monthToString(expense.month)}',
+                                                style: const TextStyle(
+                                                  fontSize: AppFonds.smal,
                                             color: AppColors.textColorBright,
-                                          ),
-                                        ),
-                                        Spacer(),
-                                        Text(
-                                          expense.year.toString(),
-                                          style: const TextStyle(
-                                            fontSize: AppFonds.smal,
+                                                ),
+                                              ),
+                                              Spacer(),
+                                              Text(
+                                                expense.year.toString(),
+                                                style: const TextStyle(
+                                                  fontSize: AppFonds.smal,
                                             color: AppColors.textColorBright,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                                if (editMode)
+                                  Checkbox(
+                                    value: selectedExpenses[index],
+                                    onChanged: (bool? value) {
+                                      setState(() {
+                                        selectedExpenses[index] = value ??
+                                            false;
+                                      });
+                                    },
+                                  ),
+                              ],
                             );
                           },
                         );

@@ -16,6 +16,9 @@ class OverviewIncomeScreen extends StatefulWidget {
 class _OverviewIncomeScreenState extends State<OverviewIncomeScreen> {
   late Future<List<Income>> _incomeList;
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool editMode = false;
+  bool standardSelected = false;
+  List<bool> selectedIncome = [];
 
   @override
   void initState() {
@@ -27,6 +30,40 @@ class _OverviewIncomeScreenState extends State<OverviewIncomeScreen> {
   void _loadIncomeData() {
     setState(() {
       _incomeList = _fetchAllIncome();
+    });
+    _incomeList.then((income) {
+      setState(() {
+        selectedIncome = List<bool>.filled(income.length, false);
+      });
+    });
+  }
+
+  void _deleteIncome() async {
+    List<int> incomeIdsToDelete = [];
+
+    for (int index = 0; index < selectedIncome.length; index++) {
+      if (selectedIncome[index]) {
+        final Income incomeToDelete = (await _incomeList).elementAt(index);
+        incomeIdsToDelete.add(incomeToDelete.id!);
+      }
+    }
+
+    // Lösche die Ausgaben, wenn die Liste nicht leer ist
+    if (incomeIdsToDelete.isNotEmpty) {
+      await DatabaseHelper.instance.deleteIncome(incomeIdsToDelete);
+
+      // Setze die Auswahl zurück und lade die Ausgaben neu
+      setState(() {
+        selectedIncome.fillRange(0, selectedIncome.length, false);
+        _loadIncomeData();
+      });
+    }
+  }
+
+  void _resetSelection() {
+    setState(() {
+      selectedIncome.fillRange(
+          0, selectedIncome.length, false);
     });
   }
 
@@ -89,6 +126,35 @@ class _OverviewIncomeScreenState extends State<OverviewIncomeScreen> {
               color: AppColors.onPrimaryColor,
             ),
           ),
+          actions: <Widget>[
+            if (editMode)
+              IconButton(
+                icon: const Icon(
+                  Icons.delete,
+                  color: AppColors.onPrimaryColor,
+                  size: 30,
+                ),
+                onPressed: () async {
+                  _deleteIncome();
+                  editMode = false;
+                },
+              ),
+            IconButton(
+              icon: const Icon(
+                Icons.edit,
+                color: AppColors.onPrimaryColor,
+                size: 30,
+              ),
+              onPressed: () {
+                setState(() {
+                  // Togglen des editMode Werts zwischen true und false
+                  editMode = !editMode;
+                  // setze die Auswahl zurück, wenn man im editMode war
+                  _resetSelection();
+                });
+              },
+            )
+          ],
           centerTitle: true,
           elevation: 2,
         ),
@@ -138,60 +204,76 @@ class _OverviewIncomeScreenState extends State<OverviewIncomeScreen> {
                       itemBuilder: (context, index) {
                         final income = allIncomeList[index];
 
-                        return Card(
-                          elevation: 4,
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Card(
+                                elevation: 4,
                           margin: const EdgeInsets.symmetric(vertical: 8.0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Income: ${income.amount?.toStringAsFixed(2)} €',
-                                  style: const TextStyle(
-                                    fontSize: AppFonds.meduim,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textColorDark,
+                                    children: [
+                                      Text(
+                                        'Income: ${income.amount?.toStringAsFixed(2)} €',
+                                        style: const TextStyle(
+                                          fontSize: AppFonds.meduim,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textColorDark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.calendar_today,
+                                              size: AppFonds.smal,
+                                              color: AppColors.textColorDark50),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Month: ${Helper.monthToString(income.startMonth)}',
+                                            style: const TextStyle(
+                                              fontSize: AppFonds.smal,
+                                              color: AppColors.textColorDark,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.date_range,
+                                              size: AppFonds.smal,
+                                              color: AppColors.textColorDark50),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Year: ${income.startYear}',
+                                            style: const TextStyle(
+                                              fontSize: AppFonds.smal,
+                                              color: AppColors.textColorDark,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.calendar_today,
-                                        size: AppFonds.smal,
-                                        color: AppColors.textColorDark50),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Month: ${Helper.monthToString(income.startMonth)}',
-                                      style: const TextStyle(
-                                        fontSize: AppFonds.smal,
-                                        color: AppColors.textColorDark,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.date_range,
-                                        size: AppFonds.smal,
-                                        color: AppColors.textColorDark50),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Year: ${income.startYear}',
-                                      style: const TextStyle(
-                                        fontSize: AppFonds.smal,
-                                        color: AppColors.textColorDark,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
+                            if (editMode)
+                              Checkbox(
+                                value: selectedIncome[index],
+                                onChanged: (bool? value) {
+                                  setState(() {
+                                    selectedIncome[index] =
+                                        value ?? false;
+                                  });
+                                },
+                              ),
+                          ],
                         );
                       },
                     );
